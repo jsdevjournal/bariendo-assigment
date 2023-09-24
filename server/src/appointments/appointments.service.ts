@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { Appointments } from './entities/appointments.entity';
 import { Users } from '../auth/entities/users.entity';
@@ -22,7 +22,7 @@ export class AppointmentsService {
     private readonly doctorsRepository: Repository<Doctors>,
     @InjectRepository(Doctoravailability)
     private readonly doctorAvaiRepository: Repository<Doctoravailability>,
-  ) {}
+  ) { }
 
   async create(
     userId: string,
@@ -37,14 +37,17 @@ export class AppointmentsService {
       throw new BadRequestException();
     }
 
-    const appointmentsPromises = doctoravailabilityIds.map(async (val) => {
-      const doctoravailability = await this.doctorAvaiRepository.findOne({
-        where: { id: val },
-        relations: ['doctor'],
-      });
-      if (!doctoravailability || doctoravailability.reserved) {
-        return null;
-      }
+    // Retrieve doctoravailabilities and related doctor information in a single query
+    const doctorAvailabilities = await this.doctorAvaiRepository.find({
+      where: {
+        id: In(doctoravailabilityIds),
+        reserved: false
+      },
+      relations: ['doctor'],
+    });
+
+    const appointmentsPromises = doctorAvailabilities.map(async (doctoravailability) => {
+
       doctoravailability.reserved = true;
 
       const data: Appointments = new Appointments();
@@ -57,12 +60,11 @@ export class AppointmentsService {
         this.doctorAvaiRepository.save(doctoravailability),
         this.appointmentsRepository.save(data),
       ]);
+
       return data;
     });
 
-    return Promise.all(appointmentsPromises).then((appointments) =>
-      appointments.filter(Boolean),
-    );
+    return Promise.all(appointmentsPromises);
   }
 
   async findAll(userId: string): Promise<Appointments[]> {
