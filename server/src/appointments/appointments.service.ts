@@ -28,13 +28,13 @@ export class AppointmentsService {
     userId: string,
     createNoteDto: CreateAppointmentDto,
   ): Promise<Appointments[]> {
-    const foundUser = await this.usersRepository.findOneBy({ id: userId });
-    if (!foundUser) {
-      throw new NotFoundException();
-    }
     const { doctoravailabilityIds } = createNoteDto;
     if (!Array.isArray(doctoravailabilityIds)) {
       throw new BadRequestException();
+    }
+    const foundUser = await this.usersRepository.findOneBy({ id: userId });
+    if (!foundUser) {
+      throw new NotFoundException();
     }
 
     // Retrieve doctoravailabilities and related doctor information in a single query

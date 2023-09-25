@@ -1,7 +1,7 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
+  ConflictException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,7 +23,7 @@ export class AuthService {
     const { email, password } = registerDto;
     const foundUser = await this._getUserByEmail(email);
     if (foundUser) {
-      throw new BadRequestException();
+      throw new ConflictException();
     }
 
     const user: Users = new Users();
