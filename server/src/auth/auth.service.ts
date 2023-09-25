@@ -21,11 +21,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto): Promise<Users> {
     const { email, password } = registerDto;
-    const foundUser = await this.usersRepository
-      .createQueryBuilder('users')
-      .addSelect('users.password')
-      .where('users.email = :email', { email })
-      .getOne();
+    const foundUser = await this._getUserByEmail(email);
     if (foundUser) {
       throw new BadRequestException();
     }
@@ -38,29 +34,26 @@ export class AuthService {
     return await this.usersRepository.save(user);
   }
 
-  async validateUser(loginDto: LoginDto): Promise<Partial<Users> | null> {
-    const { email, password } = loginDto;
+  private async _getUserByEmail(email: string): Promise<Partial<Users> | null> {
     const foundUser = await this.usersRepository
       .createQueryBuilder('users')
       .addSelect('users.password')
       .where('users.email = :email', { email })
       .getOne();
-    if (foundUser) {
-      if (await bcrypt.compare(password, foundUser.password)) {
-        const { password, ...result } = foundUser;
-        return result;
-      }
-      return null;
-    }
-    return null;
+    return foundUser;
   }
 
   async login(loginDto: LoginDto) {
-    const user = await this.validateUser(loginDto);
-    if (!user) {
+    const { email, password } = loginDto;
+    const foundUser = await this._getUserByEmail(email);
+    if (!foundUser) {
       throw new NotFoundException();
     }
-    const payload = { email: user.email, sub: user.id };
+    const pwdMatch = await bcrypt.compare(password, foundUser.password);
+    if (!pwdMatch) {
+      throw new NotFoundException();
+    }
+    const payload = { email: foundUser.email, sub: foundUser.id };
     return {
       access_token: await this.jwtService.signAsync(payload),
     };
